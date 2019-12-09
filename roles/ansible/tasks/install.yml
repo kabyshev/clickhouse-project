@@ -1,0 +1,23 @@
+---
+- name: Install | Apt-key add repo key
+  apt_key:
+    keyserver: "{{ clickhouse_repo_keyserver }}"
+    id: "{{ clickhouse_repo_key }}"
+  become: true
+  tags: [install]
+
+- name: Install | Repo installation
+  apt_repository:
+    repo: "{{ clickhouse_repo }}"
+    state: present
+  become: true
+  tags: [install]
+
+- name: Install | Package installation
+  apt:
+    name: "{{ clickhouse_version }}"
+    state: present
+    force: yes
+  with_items: "{{ clickhouse_package }}"
+  become: true
+  tags: [install]

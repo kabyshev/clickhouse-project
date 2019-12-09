@@ -1,0 +1,20 @@
+---
+- include: precheck.yml
+  tags: [always]
+
+- include: "{{ item }}"
+  with_first_found:
+    - "install.yml"
+  when: clickhouse_is_installed.rc != 0
+  tags: [install]
+
+- include: config_sys.yml
+  when: clickhouse_is_installed.rc == 0
+  tags: [config,config_sys]
+
+- name: Wait DBMS ready
+  command: sleep 1
+
+- include: config_files.yml
+  when: clickhouse_is_installed.rc == 0
+  tags: [config,config_files]

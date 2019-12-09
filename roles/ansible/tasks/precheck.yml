@@ -1,0 +1,22 @@
+---
+- name: Requirements check | Checking sse4_2 support
+  command: grep -q sse4_2 /proc/cpuinfo
+  changed_when: False
+
+- name: Requirements check | Check if Clickhouse is installed
+  shell: dpkg-query -f '${Package} ' -W |grep -q "{{ clickhouse_package| join(" ")}}"
+  register: clickhouse_is_installed
+  ignore_errors: yes
+  changed_when: False
+  check_mode: no
+
+- name: Requirements check | Check if Clickhouse is installed and has required version
+  shell: dpkg-query --showformat='${Version}' --show "{{ item }}"
+  register: clickhouse_versions_tmp
+  ignore_errors: yes
+  changed_when: False
+  check_mode: no
+  with_items: "{{ clickhouse_package }}"
+
+- name: Debug apt installed
+  debug: var=clickhouse_is_installed
