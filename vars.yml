@@ -48,3 +48,7 @@ clickhouse_mlock_status: false
 
 clickhouse_databases:
   - { name: test }
+clickhouse_shards:
+  shard_name:
+    - { host: "{{ hostvars[groups['slaves'][0]].ansible_host }}", port: 9000 }
+    - { host: "{{ hostvars[groups['slaves'][1]].ansible_host }}", port: 9000 }
