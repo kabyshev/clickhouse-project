@@ -1,0 +1,18 @@
+---
+- name: Debug apt installed
+  debug: var=clickhouse_master_host
+
+- name: Debug apt installed
+  debug: var=ansible_default_ipv4.address
+  
+- name: Precheck all files
+  include: precheck.yml
+  tags: [always]
+
+- name: Install all files if needed 
+  include: "{{ item }}"
+  with_first_found:
+    - "install.yml"
+  when: clickhouse_is_installed.rc != 0
+  tags: [install]
+  

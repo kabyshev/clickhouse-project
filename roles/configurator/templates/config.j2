@@ -68,12 +68,9 @@
 {% endif %}
 
     <!-- Listen specified host. use :: (wildcard IPv6 address), if you want to accept connections both with IPv4 and IPv6 from everywhere. -->
-    <!-- <listen_host>::</listen_host> -->
+    <listen_host>::</listen_host>
     <!-- Same for hosts with disabled ipv6: -->
     <!-- <listen_host>0.0.0.0</listen_host> -->
-{% for host in clickhouse_listen_host %}
-    <listen_host>{{ host }}</listen_host>
-{% endfor %}
 
 {% if max_partitions_per_insert_block is defined %}
     <max_partitions_per_insert_block>{{ max_partitions_per_insert_block }}</max_partitions_per_insert_block>

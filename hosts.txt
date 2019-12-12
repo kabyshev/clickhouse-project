@@ -1,6 +1,6 @@
 [slaves]
-ubuntu_1 ansible_host=ubuntu@ec2-18-188-242-250.us-east-2.compute.amazonaws.com ansible_ssh_private_key_file=/Users/kabyshev/.ssh/ClickHouseKeyPair.pem
-ubuntu_2 ansible_host=ubuntu@ec2-3-134-99-153.us-east-2.compute.amazonaws.com ansible_ssh_private_key_file=/Users/kabyshev/.ssh/ClickHouseKeyPair.pem
+ubuntu_1 ansible_host=ubuntu@ec2-18-221-123-54.us-east-2.compute.amazonaws.com ansible_ssh_private_key_file=/Users/kabyshev/.ssh/ClickHouseKeyPair.pem
+ubuntu_3 ansible_host=ubuntu@ec2-18-217-106-44.us-east-2.compute.amazonaws.com ansible_ssh_private_key_file=/Users/kabyshev/.ssh/ClickHouseKeyPair.pem
 
 [master]
-ubuntu_master ansible_host=ubuntu@ec2-18-217-169-196.us-east-2.compute.amazonaws.com ansible_ssh_private_key_file=/Users/kabyshev/.ssh/ClickHouseMasterKeyPair.pem
+ubuntu_master ansible_host=ubuntu@ec2-18-217-72-87.us-east-2.compute.amazonaws.com ansible_ssh_private_key_file=/Users/kabyshev/.ssh/ClickHouseMasterKeyPair.pem

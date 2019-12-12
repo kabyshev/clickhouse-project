@@ -1,0 +1,36 @@
+---
+- name: Drop databases
+  command: "clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -q 'DROP DATABASE transactions' "
+  when: clickhouse_should_drop_db|bool == True
+  changed_when: False
+  tags: [sql]
+
+- name: Create db
+  command:
+    "clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -q 'CREATE DATABASE IF NOT EXISTS transactions' "
+  changed_when: False
+  tags: [sql]
+
+- name: Create MergeTree tables
+  command: "clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -q '
+    CREATE TABLE IF NOT EXISTS transactions.data_sharded (
+      user_id_out Int64, 
+      user_id_in Int64, 
+      important Int8, 
+      amount Float32, 
+      datetime DateTime
+    ) ENGINE = ReplacingMergeTree()
+    PARTITION BY toYYYYMM(datetime)
+    ORDER BY (user_id_out, user_id_in, datetime)
+    '"
+  changed_when: False
+  tags: [sql]
+
+- name: Create Distributed tables
+  command: "clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -q '
+    CREATE TABLE transactions.distributed AS transactions.data_sharded 
+    ENGINE = Distributed(cluster_1, transactions, data_sharded, rand())
+    '"
+  changed_when: False
+  when: clickhouse_master_host == ansible_default_ipv4.address
+  tags: [sql]

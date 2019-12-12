@@ -13,9 +13,9 @@
   become: true
   tags: [install]
 
-- name: Install | Package installation
+- name: Install by APT | Package installation
   apt:
-    name: "{{ clickhouse_version }}"
+    name: "{{ item }}={{ clickhouse_version }}"
     state: present
     force: yes
   with_items: "{{ clickhouse_package }}"
