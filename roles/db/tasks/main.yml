@@ -1,19 +1,20 @@
 ---
 - name: Drop databases
-  command: "clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -q 'DROP DATABASE transactions' "
+  command: "clickhouse-client -q 'DROP DATABASE transactions' "
   when: clickhouse_should_drop_db|bool == True
   changed_when: False
-  tags: [sql]
+  tags: [query]
 
 - name: Create db
   command:
-    "clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -q 'CREATE DATABASE IF NOT EXISTS transactions' "
+    "clickhouse-client -q 'CREATE DATABASE IF NOT EXISTS transactions' "
   changed_when: False
-  tags: [sql]
+  tags: [query]
 
-- name: Create MergeTree tables
-  command: "clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -q '
-    CREATE TABLE IF NOT EXISTS transactions.data_sharded (
+- name: Create MergeTree tables with initial data
+  command: "clickhouse-client -q '
+    CREATE TABLE IF NOT EXISTS transactions.data_sharded 
+    (
       user_id_out Int64, 
       user_id_in Int64, 
       important Int8, 
@@ -24,13 +25,107 @@
     ORDER BY (user_id_out, user_id_in, datetime)
     '"
   changed_when: False
-  tags: [sql]
+  when: clickhouse_master_host != ansible_default_ipv4.address
+  tags: [query]
 
-- name: Create Distributed tables
-  command: "clickhouse-client -h 127.0.0.1 --port {{ clickhouse_tcp_port }} -q '
-    CREATE TABLE transactions.distributed AS transactions.data_sharded 
-    ENGINE = Distributed(cluster_1, transactions, data_sharded, rand())
+- name: Create Distributed tables with initial data
+  command: "clickhouse-client -q '
+    CREATE TABLE IF NOT EXISTS transactions.distributed
+    (
+      user_id_out Int64, 
+      user_id_in Int64, 
+      important Int8, 
+      amount Float32, 
+      datetime DateTime
+    )
+    ENGINE = Distributed(cluster_1, transactions, data_sharded, multiIf(important=1, 1, divide(rand(),4294967296)<0.375, 1, 0))
     '"
   changed_when: False
   when: clickhouse_master_host == ansible_default_ipv4.address
-  tags: [sql]
+  tags: [query]
+
+- name: Upload files
+  shell: cat transactions.snappy.parquet | clickhouse-client -q 'INSERT INTO transactions.distributed FORMAT Parquet'
+  changed_when: False
+  when: clickhouse_master_host == ansible_default_ipv4.address
+  tags: [query]
+
+- name: Create MatView table with avg_out data
+  command: "clickhouse-client -q '
+    CREATE MATERIALIZED VIEW IF NOT EXISTS transactions.avg_out_per_month_by_user 
+    ENGINE = AggregatingMergeTree() 
+    ORDER BY user_id
+    PARTITION BY month
+    POPULATE
+    AS SELECT
+      user_id_out as user_id,
+      toYYYYMM(datetime) as month,
+      avg(amount) as avg_out
+    FROM transactions.distributed
+    GROUP BY user_id_out, toYYYYMM(datetime)
+    '"
+  changed_when: False
+  when: clickhouse_master_host == ansible_default_ipv4.address
+  tags: [query]
+
+- name: Create MatView table with avg_in data
+  command: "clickhouse-client -q '
+    CREATE MATERIALIZED VIEW IF NOT EXISTS transactions.avg_in_per_month_by_user
+    ENGINE = AggregatingMergeTree()
+    ORDER BY user_id
+    PARTITION BY month
+    POPULATE
+    AS SELECT
+      user_id_in as user_id,
+      toYYYYMM(datetime) as month,
+      avg(amount) as avg_in
+    FROM transactions.distributed
+    GROUP BY user_id_in, toYYYYMM(datetime)
+    '"
+  changed_when: False
+  when: clickhouse_master_host == ansible_default_ipv4.address
+  tags: [query]
+
+- name: Create table data_sharded_aggregated
+  command: "clickhouse-client -q '
+    CREATE TABLE IF NOT EXISTS transactions.data_sharded_aggregated 
+    (
+      user_id Int64, 
+      month UInt32, 
+      avg_out Float64, 
+      avg_in Float64
+    ) 
+    ENGINE = ReplacingMergeTree() 
+    ORDER BY (user_id, month)
+    '"
+  changed_when: False
+  when: clickhouse_master_host != ansible_default_ipv4.address
+  tags: [query]
+
+- name: Create MatView Distributed table avg_per_month_by_user
+  command: "clickhouse-client -q '
+    CREATE MATERIALIZED VIEW IF NOT EXISTS transactions.avg_per_month_by_user
+    ENGINE = AggregatingMergeTree()
+    ORDER BY user_id
+    PARTITION BY month
+    POPULATE
+    AS SELECT *
+    FROM (SELECT * from transactions.avg_out_per_month_by_user ALL FULL JOIN transactions.avg_in_per_month_by_user USING user_id, month)
+    GROUP BY user_id, month, avg_out, avg_in
+    '"
+  changed_when: False
+  when: clickhouse_master_host == ansible_default_ipv4.address
+  tags: [query]
+
+- name: Create MatView Distributed table avg_per_month_by_user_distributed
+  command: "clickhouse-client -q '
+    CREATE MATERIALIZED VIEW IF NOT EXISTS transactions.avg_per_month_by_user_distributed
+    ENGINE = Distributed(cluster_1, transactions, data_sharded_aggregated, rand())
+    POPULATE
+    AS SELECT *
+    FROM transactions.avg_per_month_by_user
+    GROUP BY user_id, month, avg_out, avg_in
+    '"
+  changed_when: False
+  when: clickhouse_master_host == ansible_default_ipv4.address
+  tags: [query]
