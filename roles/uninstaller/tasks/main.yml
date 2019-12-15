@@ -1,11 +1,11 @@
 ---
-- name: Uninstall by APT | Stop service
+- name: Uninstall | Stop service
   service:
     name: clickhouse-server
     state: stopped
   become: true
 
-- name: Uninstall by APT | Package uninstallation
+- name: Uninstall | Package uninstallation
   apt:
     name: '{{ clickhouse_package }}'
     state: absent
@@ -13,20 +13,20 @@
   with_items: "{{ clickhouse_package }}"
   become: true
 
-- name: Uninstall by APT | Repo uninstallation
+- name: Uninstall | Repo uninstallation
   apt_repository:
     repo: "{{ clickhouse_repo }}"
     state: absent
   become: true
 
-- name: Uninstall by APT | Apt-key remove repo key
+- name: Uninstall | Remove repo key
   apt_key:
     keyserver: "{{ clickhouse_repo_keyserver }}"
     id: "{{ clickhouse_repo_key }}"
     state: absent
   become: true
 
-- name: Remove clickhouse config, data and logs
+- name: Uninstall | Remove clickhouse configuration, data and logs
   file:
     dest: "{{ item }}"
     state: absent

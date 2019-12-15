@@ -22,6 +22,15 @@ clickhouse_logger:
   size: 1000M
   count: 10
 
+clickhouse_users:
+  - { name: "default", password: "", networks: "127.0.0.1", profile: "default", quota: "default", comment: "Default user for login" }
+  - { name: "readonly", password: "", networks: "127.0.0.1", profile: "default", quota: "default", comment: "User with readonly access" }
+
+clickhouse_quotas_intervals:
+ - { duration: 3600, queries: 0, errors: 0, result_rows: 0, read_rows: 0, execution_time: 0 }
+clickhouse_quotas:
+ - { name: "default", intervals: "{{ clickhouse_quotas_intervals }}", comment: "Default quota - count only" }
+
 clickhouse_config:
   max_connections: 2048
   keep_alive_timeout: 10
@@ -40,7 +49,7 @@ clickhouse_interserver_http: 9009
 
 clickhouse_mlock_status: false
 clickhouse_should_clear: false
-clickhouse_should_drop_db: false
+clickhouse_should_drop_db: true
 
 clickhouse_databases:
   - { name: test }

@@ -1,5 +1,5 @@
 ---
-- name: Install | Apt-key add repo key
+- name: Install | Add repo key
   apt_key:
     keyserver: "{{ clickhouse_repo_keyserver }}"
     id: "{{ clickhouse_repo_key }}"
@@ -13,7 +13,7 @@
   become: true
   tags: [install]
 
-- name: Install by APT | Package installation
+- name: Install | Package installation
   apt:
     name: "{{ item }}={{ clickhouse_version }}"
     state: present

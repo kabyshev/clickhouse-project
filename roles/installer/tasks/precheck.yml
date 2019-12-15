@@ -18,5 +18,5 @@
   check_mode: no
   with_items: "{{ clickhouse_package }}"
 
-- name: Debug apt installed
+- name: Debug clickhouse_is_installed
   debug: var=clickhouse_is_installed

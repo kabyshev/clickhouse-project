@@ -1,5 +1,5 @@
 ---
-- name: Remove clickhouse config,data and logs
+- name: Config | Remove clickhouse configurations, data and logs
   file:
     dest: "{{ item }}"
     state: absent
@@ -12,7 +12,7 @@
   notify: restart-clickhouse
   when: clickhouse_should_clear|bool == True
 
-- name: Check clickhouse config, data and logs
+- name: Config | Check clickhouse configurations, data and logs
   file:
     dest: "{{ item }}"
     owner: clickhouse
@@ -26,7 +26,7 @@
   notify: restart-clickhouse
   become: true
 
-- name: Config | Generate system config
+- name: Config | Generate system configuration
   template:
     src: config.j2
     dest: "{{ clickhouse_path_configdir }}/config.xml"
@@ -35,7 +35,15 @@
   notify: restart-clickhouse
   become: true
 
-- name: Config | Create conf folder
+- name: Config | Generate users configuration
+  template:
+    src: users.j2
+    dest: "{{ clickhouse_path_configdir }}/users.xml"
+    owner: clickhouse
+    group: clickhouse
+  become: true
+
+- name: Config | Create configuration folder
   file:
     path: "{{ clickhouse_path_configdir }}/conf.d"
     state: directory
@@ -43,7 +51,7 @@
     group: clickhouse
   become: true
 
-- name: Config | Generate remote_servers config
+- name: Config | Generate remote_servers configuration
   template:
     src: remote_servers.j2
     dest: "{{ clickhouse_path_configdir }}/conf.d/clickhouse_remote_servers.xml"
@@ -52,17 +60,6 @@
   notify: restart-clickhouse
   become: true
   when: clickhouse_shards is defined 
-
-- name: Config | Generate macros config
-  template:
-    src: macros.j2
-    dest: "{{ clickhouse_path_configdir }}/conf.d/macros.xml"
-    owner: clickhouse
-    group: clickhouse
-    mode: 0644
-  notify: restart-clickhouse
-  become: true
-  when: clickhouse_macros is defined 
 
 - name: restart-clickhouse
   service:
