@@ -22,9 +22,6 @@ clickhouse_logger:
   size: 1000M
   count: 10
 
-clickhouse_users:
-  - { name: "default", password: "", networks: "127.0.0.1", profile: "default", quota: "default", comment: "Default user for login" }
-  - { name: "readonly", password: "", networks: "127.0.0.1", profile: "default", quota: "default", comment: "User with readonly access" }
 
 clickhouse_quotas_intervals:
  - { duration: 3600, queries: 0, errors: 0, result_rows: 0, read_rows: 0, execution_time: 0 }
@@ -59,4 +56,5 @@ clickhouse_shards:
   shard_2:
     - { host: "{{ hostvars[groups['slaves'][1]].ansible_default_ipv4.address }}", port: 9000 }
 
-clickhouse_master_host: "{{ hostvars[groups['master'][0]].ansible_default_ipv4.address }}"
+#clickhouse_master_host: "{{ hostvars[groups['master'][0]].ansible_default_ipv4.address }}"
+clickhouse_loader_host: "{{ hostvars[groups['slaves'][1]].ansible_default_ipv4.address }}"

@@ -1,6 +1,4 @@
 ---
-- name: Debug clickhouse_master_host
-  debug: var=clickhouse_master_host
 
 - name: Debug ansible_default_ipv4.address
   debug: var=ansible_default_ipv4.address

@@ -25,59 +25,42 @@
     ORDER BY (user_id_out, user_id_in, datetime)
     '"
   changed_when: False
-  when: clickhouse_master_host != ansible_default_ipv4.address
   tags: [query]
 
 - name: Create Distributed tables with initial data
   command: "clickhouse-client -q '
     CREATE TABLE IF NOT EXISTS transactions.distributed
-    (
-      user_id_out Int64, 
-      user_id_in Int64, 
-      important Int8, 
-      amount Float32, 
-      datetime DateTime
-    )
-    ENGINE = Distributed(cluster_1, transactions, data_sharded, multiIf(important=1, 1, divide(rand(),4294967296)<0.375, 1, 0))
+    AS transactions.data_sharded
+    ENGINE = Distributed(cluster_1, transactions, data_sharded, multiIf(important == 1, 1, user_id_in % 8 < 3, 1, 0))
     '"
   changed_when: False
-  when: clickhouse_master_host == ansible_default_ipv4.address
   tags: [query]
 
 - name: Upload files
   shell: cat transactions.snappy.parquet | clickhouse-client -q 'INSERT INTO transactions.distributed FORMAT Parquet'
   changed_when: False
-  when: clickhouse_master_host == ansible_default_ipv4.address
+  when: clickhouse_loader_host == ansible_default_ipv4.address
   tags: [query]
 
-- name: Create table data_sharded_aggregated
-  command: "clickhouse-client -q '
-    CREATE TABLE IF NOT EXISTS transactions.data_sharded_aggregated 
-    (
-      user_id Int64, 
-      month UInt32, 
-      avg_out Float64, 
-      avg_in Float64
-    ) 
-    ENGINE = ReplacingMergeTree() 
-    ORDER BY (user_id, month)
-    '"
+- name: Make optimizations
+  command: "clickhouse-client -q 'OPTIMIZE TABLE transactions.data_sharded FINAL'"
   changed_when: False
-  when: clickhouse_master_host != ansible_default_ipv4.address
   tags: [query]
 
-- name: Create MatView table with avg_in data
+- name: Create local matview data_aggregated_state
   command: "clickhouse-client -q '
-    CREATE MATERIALIZED VIEW IF NOT EXISTS transactions.avg_per_month_by_user_distributed
-    ENGINE = Distributed(cluster_1, transactions, data_sharded_aggregated, rand())
+    CREATE MATERIALIZED VIEW IF NOT EXISTS transactions.data_aggregated_state  
+    ENGINE = AggregatingMergeTree() 
+    PARTITION BY month
+    ORDER BY (user_id, month)
     POPULATE
-    AS SELECT month, user_id, avg_in, avg_out FROM
+    AS SELECT month, user_id, avg_in_state, avg_out_state FROM
   (
     SELECT * FROM
     (
         SELECT
             toYYYYMM(datetime) as month, 
-            avg(amount) as avg_out, 
+            avgState(amount) as avg_out_state, 
             user_id_out as user_id
         FROM transactions.distributed
         GROUP BY month, user_id
@@ -86,7 +69,7 @@
     (
         SELECT
             toYYYYMM(datetime) as month, 
-            avg(amount) as avg_in, 
+            avgState(amount) as avg_in_state, 
             user_id_in as user_id
         FROM transactions.distributed
         GROUP BY month, user_id
@@ -96,5 +79,32 @@
   )
     '"
   changed_when: False
-  when: clickhouse_master_host == ansible_default_ipv4.address
+  tags: [query]
+
+- name: Create table data_sharded_aggregated_state_distributed
+  command: "clickhouse-client -q '
+    CREATE TABLE IF NOT EXISTS transactions.data_aggregated_state_distributed
+    (
+      user_id Int64, 
+      month UInt32, 
+      avg_out_state AggregateFunction(avg, Float32), 
+      avg_in_state AggregateFunction(avg, Float32)
+    ) 
+    ENGINE = Distributed(cluster_1, transactions, data_aggregated_state)
+    '"
+  changed_when: False
+  tags: [query]
+
+- name: Create View table with aggregated data
+  command: "clickhouse-client -q '
+    CREATE VIEW IF NOT EXISTS transactions.data_aggregated
+    AS SELECT
+      user_id,
+      month,
+      avgMerge(avg_out_state) as avg_out,
+      avgMerge(avg_in_state) as avg_in
+    FROM transactions.data_aggregated_state_distributed
+    GROUP BY user_id, month
+    '"
+  changed_when: False
   tags: [query]
